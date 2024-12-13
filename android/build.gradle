@@ -65,4 +65,8 @@ android {
             }
         }
     }
+    
+    buildFeatures {
+        buildConfig true
+    }
 }

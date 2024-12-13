@@ -1,0 +1,28 @@
+# Run with `dart run jnigen --config jnigen.yaml`.
+android_sdk_config:
+  add_gradle_deps: true
+  android_example: example/
+suspend_fun_to_async: true
+log_level: all
+output:
+  dart:
+    path: lib/src/jni/
+classes:
+  - android.Manifest
+  - android.app.Activity
+  - android.content.Context
+  - android.content.Intent
+  - android.content.IntentFilter
+  - android.content.pm.PackageManager
+  - android.net.DhcpInfo
+  - android.net.wifi.ScanResult
+  - android.net.wifi.WifiConfiguration
+  - android.net.wifi.WifiInfo
+  - android.net.wifi.WifiManager
+  - androidx.core.app.ActivityCompat
+  - androidx.core.app.ActivityOptionsCompat
+  - androidx.core.content.ContextCompat
+  - dev.hebei.wifi.ActivityX
+  - dev.hebei.wifi.BroadcastReceiverImpl
+  - io.flutter.plugin.common.PluginRegistry
+  - java.lang.CharSequence
