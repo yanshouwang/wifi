@@ -2,7 +2,7 @@ abstract interface class WiFiInfo {
   String get bssid;
   int get frequency;
   bool get hiddenSSID;
-  int get ipAddres;
+  int get ipAddress;
   int get linkSpeed;
   String get macAddress;
   int get networkId;

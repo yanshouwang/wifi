@@ -6,20 +6,17 @@ import 'package:wifi/wifi.dart';
 final class WiFiViewModel extends ViewModel {
   final WiFiManager _wm;
 
-  late bool _state;
   late final StreamSubscription _stateChangedSubscription;
 
   WiFiViewModel() : _wm = WiFiManager() {
-    _state = _wm.state;
-    _stateChangedSubscription = _wm.stateChanged.listen((eventArgs) {
-      _state = eventArgs.state;
+    _stateChangedSubscription = _wm.stateChanged.listen((event) {
       notifyListeners();
     });
     _checkPermissions();
   }
 
-  bool get state => _state;
-  set state(bool value) => _wm.state = value;
+  bool get enabled => _wm.enabled;
+  set enabled(bool value) => _wm.enabled = value;
 
   List<WiFiConfiguration> get configuredNetworks {
     final items = <WiFiConfiguration>[];

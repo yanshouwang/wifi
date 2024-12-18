@@ -4,14 +4,15 @@ import 'package:hybrid_logging/hybrid_logging.dart';
 import 'package:jni/jni.dart' as jni;
 
 import 'dhcp_info.dart';
+import 'events.dart';
 import 'jni.dart' as jni;
 import 'scan_result.dart';
 import 'wifi_configuration.dart';
 import 'wifi_configuration_status.dart';
-import 'wifi_event_args.dart';
 import 'wifi_exception.dart';
 import 'wifi_info.dart';
 import 'wifi_manager.dart';
+import 'wifi_state.dart';
 
 final class WiFiManagerImpl
     with TypeLogger, LoggerController
@@ -19,7 +20,7 @@ final class WiFiManagerImpl
   final jni.WifiManager _jwm;
   final List<jni.JString> _jps;
 
-  late final StreamController<WiFiStateEventArgs> _stateChangedController;
+  late final StreamController<WiFiStateChangedEvent> _stateChangedController;
   late final jni.BroadcastReceiverImpl _receiver;
 
   WiFiManagerImpl()
@@ -38,16 +39,14 @@ final class WiFiManagerImpl
     final callback = jni.BroadcastReceiverImpl_Callback.implement(
       jni.$BroadcastReceiverImpl_Callback(
         onReceive: (context, intent) {
-          final stateValue = intent.getIntExtra(
-            jni.WifiManager.EXTRA_WIFI_STATE,
-            jni.WifiManager.WIFI_STATE_UNKNOWN,
-          );
-          logger.info('WiFi state changed: $stateValue');
-          if (stateValue == jni.WifiManager.WIFI_STATE_UNKNOWN) {
-            return;
-          }
-          final eventArgs = WiFiStateEventArgs(stateValue.wifiState);
-          _stateChangedController.add(eventArgs);
+          final state = intent
+              .getIntExtra(
+                jni.WifiManager.EXTRA_WIFI_STATE,
+                jni.WifiManager.WIFI_STATE_UNKNOWN,
+              )
+              .toWiFiState();
+          final event = WiFiStateChangedEvent(state);
+          _stateChangedController.add(event);
         },
       ),
     );
@@ -55,13 +54,12 @@ final class WiFiManagerImpl
   }
 
   @override
-  bool get state {
-    final jniState = _jwm.getWifiState();
-    return jniState.wifiState;
+  bool get enabled {
+    return _jwm.isWifiEnabled();
   }
 
   @override
-  set state(bool value) {
+  set enabled(bool value) {
     final ok = _jwm.setWifiEnabled(value);
     if (!ok) {
       throw WiFiException('setWifiEnabled $value failed.');
@@ -69,7 +67,8 @@ final class WiFiManagerImpl
   }
 
   @override
-  Stream<WiFiStateEventArgs> get stateChanged => _stateChangedController.stream;
+  Stream<WiFiStateChangedEvent> get stateChanged =>
+      _stateChangedController.stream;
 
   void _onListenStateChagned() {
     final receiver = _receiver;
@@ -275,8 +274,7 @@ final class WiFiConfigurationImpl implements WiFiConfiguration {
   }
 
   @override
-  WiFiConfigurationStatus get status => WiFiConfigurationStatus.values
-      .firstWhere((status) => status.value == _jwc.status);
+  WiFiConfigurationStatus get status => _jwc.status.toWiFiConfigurationStatus();
 
   @override
   List<String?> get wepKeys {
@@ -323,7 +321,7 @@ final class WiFiInfoImpl implements WiFiInfo {
   @override
   bool get hiddenSSID => _jwi.getHiddenSSID();
   @override
-  int get ipAddres => _jwi.getIpAddress();
+  int get ipAddress => _jwi.getIpAddress();
   @override
   int get linkSpeed => _jwi.getLinkSpeed();
   @override
@@ -338,4 +336,36 @@ final class WiFiInfoImpl implements WiFiInfo {
   String get ssid => _jwi.getSSID().toDartString(
         releaseOriginal: true,
       );
+}
+
+extension on int {
+  WiFiState toWiFiState() {
+    switch (this) {
+      case jni.WifiManager.WIFI_STATE_UNKNOWN:
+        return WiFiState.unknown;
+      case jni.WifiManager.WIFI_STATE_DISABLED:
+        return WiFiState.disabled;
+      case jni.WifiManager.WIFI_STATE_ENABLING:
+        return WiFiState.enabling;
+      case jni.WifiManager.WIFI_STATE_ENABLED:
+        return WiFiState.enabled;
+      case jni.WifiManager.WIFI_STATE_DISABLING:
+        return WiFiState.disabling;
+      default:
+        throw ArgumentError.value(this);
+    }
+  }
+
+  WiFiConfigurationStatus toWiFiConfigurationStatus() {
+    switch (this) {
+      case jni.WifiConfiguration_Status.CURRENT:
+        return WiFiConfigurationStatus.current;
+      case jni.WifiConfiguration_Status.DISABLED:
+        return WiFiConfigurationStatus.disabled;
+      case jni.WifiConfiguration_Status.ENABLED:
+        return WiFiConfigurationStatus.enabled;
+      default:
+        throw ArgumentError.value(this);
+    }
+  }
 }

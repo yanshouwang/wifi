@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'dhcp_info.dart';
+import 'events.dart';
 import 'impl.dart';
 import 'scan_result.dart';
 import 'wifi_configuration.dart';
-import 'wifi_event_args.dart';
 import 'wifi_info.dart';
 
 abstract interface class WiFiManager {
@@ -18,10 +18,10 @@ abstract interface class WiFiManager {
     return instance;
   }
 
-  bool get state;
-  set state(bool value);
+  bool get enabled;
+  set enabled(bool value);
 
-  Stream<WiFiStateEventArgs> get stateChanged;
+  Stream<WiFiStateChangedEvent> get stateChanged;
 
   List<ScanResult> get scanResults;
 

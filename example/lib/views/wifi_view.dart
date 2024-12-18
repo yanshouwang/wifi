@@ -9,7 +9,7 @@ class WiFiView extends StatelessWidget with TypeLogger {
   @override
   Widget build(BuildContext context) {
     final viewModel = ViewModel.of<WiFiViewModel>(context);
-    final state = viewModel.state;
+    final state = viewModel.enabled;
     final configuredNetworks = viewModel.configuredNetworks;
     for (var network in configuredNetworks) {
       logger.info(
@@ -30,7 +30,7 @@ class WiFiView extends StatelessWidget with TypeLogger {
             child: SwitchListTile(
               title: const Text('WiFi'),
               value: state,
-              onChanged: (value) => viewModel.state = value,
+              onChanged: (value) => viewModel.enabled = value,
             ),
           ),
           SliverList.separated(
