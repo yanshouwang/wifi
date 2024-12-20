@@ -1,4 +1,5 @@
--keep class androidx.core.app.** { *; }
--keep class androidx.core.content.** { *; }
+-keep class androidx.core.app.ActivityCompat { *; }
+-keep class androidx.core.app.ActivityOptionsCompat { *; }
+-keep class androidx.core.content.ContextCompat { *; }
 -keep class dev.hebei.wifi.** { *; }
--keep class io.flutter.plugin.common.** { *; }
+-keep class io.flutter.plugin.common.PluginRegistry { *; }
