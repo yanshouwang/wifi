@@ -1,7 +1,6 @@
 package dev.hebei.wifi
 
 import android.content.Intent
-import androidx.annotation.Keep
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
 import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
@@ -26,29 +25,23 @@ object ActivityX : RequestPermissionsResultListener, ActivityResultListener {
         this.binding = null
     }
 
-    @Keep
     fun addRequestPermissionsResultListener(listener: RequestPermissionsResultListener) {
         rprListeners.add(listener)
     }
 
-    @Keep
     fun removeRequestPermissionsResultListener(listener: RequestPermissionsResultListener) {
         rprListeners.remove(listener)
     }
 
-    @Keep
     fun addActivityResultListener(listener: ActivityResultListener) {
         arListeners.add(listener)
     }
 
-    @Keep
     fun removeActivityResultListener(listener: ActivityResultListener) {
         arListeners.remove(listener)
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ): Boolean {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray): Boolean {
         return rprListeners.map {
             it.onRequestPermissionsResult(requestCode, permissions, grantResults)
         }.any { it }

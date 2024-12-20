@@ -1,0 +1,4 @@
+-keep class androidx.core.app.** { *; }
+-keep class androidx.core.content.** { *; }
+-keep class dev.hebei.wifi.** { *; }
+-keep class io.flutter.plugin.common.** { *; }
