@@ -44,8 +44,8 @@ class _MyAppState extends State<MyApp> {
         GoRoute(
           path: '/',
           builder: (context, state) => ViewModelBinding(
-            viewBuilder: (context) => const WiFiView(),
-            viewModelBuilder: (context) => WiFiViewModel(),
+            viewBuilder: () => const WiFiView(),
+            viewModelBuilder: () => WiFiViewModel(),
           ),
         ),
       ],

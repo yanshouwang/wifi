@@ -1,5 +1,5 @@
 name: wifi_example
-description: "Demonstrates how to use the wifi plugin."
+description: 'Demonstrates how to use the wifi plugin.'
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -31,7 +31,7 @@ dependencies:
   logging: ^1.3.0
   hybrid_logging: ^1.0.0
   go_router: ^14.6.2
-  clover: ^3.0.0
+  clover: ^4.0.0
 
 dev_dependencies:
   integration_test:
@@ -51,7 +51,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
