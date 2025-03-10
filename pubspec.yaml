@@ -1,25 +1,22 @@
 name: wifi
-description: 'A new Flutter plugin project.'
+description: 'This class provides the primary API for managing all aspects of Wi-Fi connectivity.'
 version: 0.0.1
 homepage:
 
 environment:
-  sdk: ^3.5.0
+  sdk: ^3.6.0
   flutter: '>=3.3.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  hybrid_logging: ^1.0.0
-  jni: ^0.12.2
-  logging: ^1.3.0
   plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
-  jnigen: ^0.12.2
+  flutter_lints: ^5.0.0
+  pigeon: ^24.2.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -40,7 +37,7 @@ flutter:
     platforms:
       android:
         package: dev.hebei.wifi
-        pluginClass: WiFiPlugin
+        pluginClass: WifiPlugin
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

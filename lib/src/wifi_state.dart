@@ -1,7 +1,1 @@
-enum WiFiState {
-  unknown,
-  disabled,
-  enabling,
-  enabled,
-  disabling,
-}
+export 'wifi.g.dart' show WifiState;

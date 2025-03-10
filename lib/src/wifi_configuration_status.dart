@@ -1,5 +1,1 @@
-enum WiFiConfigurationStatus {
-  current,
-  disabled,
-  enabled,
-}
+export 'wifi.g.dart' show WifiConfigurationStatus;

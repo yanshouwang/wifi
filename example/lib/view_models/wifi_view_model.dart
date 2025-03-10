@@ -1,39 +1,28 @@
 import 'dart:async';
 
 import 'package:clover/clover.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wifi/wifi.dart';
+import 'package:wifi_example/models.dart';
 
 final class WiFiViewModel extends ViewModel {
-  final WiFiManager _wm;
+  final WifiManager _wifiManager;
+  bool _enabled;
+  List<WifiConfigurationModel> _configuredNetworks;
+  WifiInfoModel? _connectionInfo;
 
   late final StreamSubscription _stateChangedSubscription;
 
-  WiFiViewModel() : _wm = WiFiManager() {
-    _stateChangedSubscription = _wm.stateChanged.listen((event) {
+  WiFiViewModel()
+    : _wifiManager = WifiManager(),
+      _enabled = false,
+      _configuredNetworks = [] {
+    _stateChangedSubscription = _wifiManager.stateChanged.listen((state) {
+      _enabled = state == WifiState.enabled;
       notifyListeners();
     });
-    _checkPermissions();
+    _initialize();
   }
-
-  bool get enabled => _wm.enabled;
-  set enabled(bool value) => _wm.enabled = value;
-
-  List<WiFiConfiguration> get configuredNetworks {
-    final items = <WiFiConfiguration>[];
-    final configuredNetworks = _wm.configuredNetworks;
-    for (var configuredNetwork in configuredNetworks) {
-      final any =
-          items.any((item) => item.networkId == configuredNetwork.networkId);
-      if (any) {
-        continue;
-      }
-      items.add(configuredNetwork);
-    }
-    return items;
-  }
-
-  List<ScanResult> get scanResults => _wm.scanResults;
-  WiFiInfo get connectionInfo => _wm.connectionInfo;
 
   @override
   void dispose() {
@@ -41,22 +30,63 @@ final class WiFiViewModel extends ViewModel {
     super.dispose();
   }
 
-  void connect(int netId) {
-    _wm.enableNetwork(netId, true);
+  bool get enabled => _enabled;
+
+  List<WifiConfigurationModel> get configuredNetworks => _configuredNetworks;
+
+  WifiInfoModel? get connectionInfo => _connectionInfo;
+
+  Future<void> enable(bool value) => _wifiManager.setWifiEnabled(value);
+
+  Future<void> connect(int netId) async {
+    await _wifiManager.enableNetwork(netId, true);
   }
 
-  void disconnect(int netId) {
-    _wm.disconnect();
+  Future<void> disconnect(int netId) async {
+    await _wifiManager.disconnect();
   }
 
-  void _checkPermissions() async {
-    var isGranted = _wm.checkPermissions();
+  void _initialize() async {
+    var isGranted = await Permission.locationWhenInUse.isGranted;
     if (!isGranted) {
-      isGranted = await _wm.requestPermissions();
+      final status = await Permission.locationWhenInUse.request();
+      isGranted = status == PermissionStatus.granted;
     }
     if (!isGranted) {
       return;
     }
+    _enabled = await _wifiManager.isWifiEnabled();
+    _configuredNetworks = await _getConfiguredNetworks();
+    _connectionInfo = await _getConnectionInfo();
     notifyListeners();
+  }
+
+  Future<List<WifiConfigurationModel>> _getConfiguredNetworks() async {
+    final configuredNetworks = await _wifiManager.getConfiguredNetworks();
+    final models = <WifiConfigurationModel>[];
+    for (var network in configuredNetworks) {
+      final networkId = await network.getNetworkId();
+      final ssid = await network.getSSID();
+      final status = await network.getStatus();
+      final any = models.any((item) => item.networkId == networkId);
+      if (any) {
+        continue;
+      }
+      final model = WifiConfigurationModel(
+        networkId: networkId,
+        ssid: ssid,
+        status: status,
+      );
+      models.add(model);
+    }
+    return models;
+  }
+
+  Future<WifiInfoModel> _getConnectionInfo() async {
+    final connectionInfo = await _wifiManager.getConnectionInfo();
+    final ssid = await connectionInfo.getSSID();
+    final linkSpeed = await connectionInfo.getLinkSpeed();
+    final model = WifiInfoModel(ssid: ssid, linkSpeed: linkSpeed);
+    return model;
   }
 }

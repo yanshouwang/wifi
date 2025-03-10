@@ -1,7 +1,7 @@
-class WiFiException implements Exception {
+class WifiException implements Exception {
   final String message;
 
-  WiFiException(this.message);
+  WifiException(this.message);
 
   @override
   String toString() => 'WiFiException: $message';

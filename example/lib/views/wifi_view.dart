@@ -13,51 +13,36 @@ class WiFiView extends StatelessWidget with TypeLogger {
     final configuredNetworks = viewModel.configuredNetworks;
     for (var network in configuredNetworks) {
       logger.info(
-          'configured network: ${network.networkId}, ${network.ssid}, ${network.status}');
+        'configured network: ${network.networkId}, ${network.ssid}, ${network.status}',
+      );
     }
-    final scanResults = viewModel.scanResults;
     final connectionInfo = viewModel.connectionInfo;
     logger.info(
-        'connection info: ${connectionInfo.ssid}, ${connectionInfo.linkSpeed}');
+      'connection info: ${connectionInfo?.ssid}, ${connectionInfo?.linkSpeed}',
+    );
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          const SliverAppBar(
-            title: Text('WiFi'),
-            pinned: true,
-          ),
+          const SliverAppBar(title: Text('WiFi'), pinned: true),
           SliverToBoxAdapter(
             child: SwitchListTile(
               title: const Text('WiFi'),
               value: state,
-              onChanged: (value) => viewModel.enabled = value,
+              onChanged: (value) => viewModel.enable(value),
             ),
           ),
           SliverList.separated(
             itemBuilder: (context, index) {
-              final wc = configuredNetworks[index];
+              final config = configuredNetworks[index];
               return ListTile(
-                title: Text(wc.ssid),
-                onTap: () => viewModel.connect(wc.networkId),
+                title: Text(config.ssid),
+                onTap: () => viewModel.connect(config.networkId),
               );
             },
             separatorBuilder: (context, index) {
               return const Divider();
             },
             itemCount: configuredNetworks.length,
-          ),
-          SliverList.separated(
-            itemBuilder: (context, index) {
-              final sr = scanResults[index];
-              return ListTile(
-                title: Text(sr.ssid),
-                subtitle: Text(sr.bssid),
-              );
-            },
-            separatorBuilder: (context, index) {
-              return const Divider();
-            },
-            itemCount: scanResults.length,
           ),
         ],
       ),

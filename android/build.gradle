@@ -9,7 +9,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.1.0")
+        classpath("com.android.tools.build:gradle:8.7.0")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
     }
 }
@@ -25,19 +25,17 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
-    if (project.android.hasProperty("namespace")) {
-        namespace = "dev.hebei.wifi"
-    }
+    namespace = "dev.hebei.wifi"
 
-    compileSdk = 34
+    compileSdk = 35
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = JavaVersion.VERSION_11
     }
 
     sourceSets {
@@ -47,8 +45,6 @@ android {
 
     defaultConfig {
         minSdk = 21
-        // Keeping the classes from being removed by proguard.
-        consumerProguardFiles 'consumer-rules.pro'
     }
 
     dependencies {
@@ -66,9 +62,5 @@ android {
                showStandardStreams = true
             }
         }
-    }
-    
-    buildFeatures {
-        buildConfig true
     }
 }

@@ -1,371 +1,329 @@
 import 'dart:async';
 
-import 'package:hybrid_logging/hybrid_logging.dart';
-import 'package:jni/jni.dart' as jni;
-
 import 'dhcp_info.dart';
-import 'events.dart';
-import 'jni.dart' as jni;
-import 'scan_result.dart';
+import 'wifi.g.dart' as api;
 import 'wifi_configuration.dart';
 import 'wifi_configuration_status.dart';
 import 'wifi_exception.dart';
 import 'wifi_info.dart';
 import 'wifi_manager.dart';
+import 'wifi_plugin.dart';
 import 'wifi_state.dart';
 
-final class WiFiManagerImpl
-    with TypeLogger, LoggerController
-    implements WiFiManager {
-  final jni.WifiManager _jwm;
-  final List<jni.JString> _jps;
+api.Context get _context => api.WifiPlugin.instance.context;
 
-  late final StreamController<WiFiStateChangedEvent> _stateChangedController;
-  late final jni.BroadcastReceiverImpl _receiver;
+final class WifiPluginImpl extends WifiPlugin {
+  @override
+  WifiManager newWifiManager() {
+    return WifiManagerImpl();
+  }
 
-  WiFiManagerImpl()
-      : _jwm = jni.ContextCompat.getSystemService(
-          jni.context,
-          jni.WifiManager.type.jClass,
-          T: jni.WifiManager.type,
-        ),
-        _jps = [
-          jni.Manifest_permission.ACCESS_FINE_LOCATION,
-        ] {
+  @override
+  WifiConfiguration newWifiConfiguration() {
+    return WifiConfigurationImpl();
+  }
+}
+
+final class WifiManagerImpl extends WifiManager {
+  static WifiManagerImpl? _instance;
+
+  final Future<api.WifiManager> _manager;
+
+  late final StreamController<WifiState> _stateChangedController;
+  late final api.BroadcastReceiver _receiver;
+
+  WifiManagerImpl.api(this._manager) : super.impl() {
     _stateChangedController = StreamController.broadcast(
       onListen: _onListenStateChagned,
       onCancel: _onCancelStateChagned,
     );
-    final callback = jni.BroadcastReceiverImpl_Callback.implement(
-      jni.$BroadcastReceiverImpl_Callback(
-        onReceive: (context, intent) {
-          final state = intent
-              .getIntExtra(
-                jni.WifiManager.EXTRA_WIFI_STATE,
-                jni.WifiManager.WIFI_STATE_UNKNOWN,
-              )
-              .toWiFiState();
-          final event = WiFiStateChangedEvent(state);
-          _stateChangedController.add(event);
-        },
-      ),
+    _receiver = api.BroadcastReceiver(
+      onReceive: (_, context, intent) async {
+        final action = await intent.getAction();
+        if (action != api.IntentAction.wifiStateChanged) {
+          return;
+        }
+        final state = await intent.getWifiState();
+        _stateChangedController.add(state);
+      },
     );
-    _receiver = jni.BroadcastReceiverImpl(callback);
+  }
+
+  factory WifiManagerImpl() {
+    var instance = _instance;
+    if (instance == null) {
+      final manager = api.ContextCompat.getWifiManager(_context)
+          .then((e) => ArgumentError.checkNotNull(e));
+      _instance = instance = WifiManagerImpl.api(manager);
+    }
+    return instance;
   }
 
   @override
-  bool get enabled {
-    return _jwm.isWifiEnabled();
+  Stream<WifiState> get stateChanged => _stateChangedController.stream;
+
+  @override
+  Future<bool> isWifiEnabled() async {
+    final manager = await _manager;
+    final value = await manager.isWifiEnabled();
+    return value;
   }
 
   @override
-  set enabled(bool value) {
-    final ok = _jwm.setWifiEnabled(value);
+  Future<void> setWifiEnabled(bool value) async {
+    final manager = await _manager;
+    final ok = await manager.setWifiEnabled(value);
     if (!ok) {
-      throw WiFiException('setWifiEnabled $value failed.');
+      throw WifiException('setWifiEnabled $value failed.');
     }
   }
 
-  @override
-  Stream<WiFiStateChangedEvent> get stateChanged =>
-      _stateChangedController.stream;
-
-  void _onListenStateChagned() {
+  void _onListenStateChagned() async {
+    final context = _context;
     final receiver = _receiver;
-    final filter =
-        jni.IntentFilter.new$1(jni.WifiManager.WIFI_STATE_CHANGED_ACTION);
-    jni.ContextCompat.registerReceiver(
-      jni.context,
-      receiver,
-      filter,
-      jni.ContextCompat.RECEIVER_NOT_EXPORTED,
+    final filter = api.IntentFilter(
+      action: api.IntentAction.wifiStateChanged,
     );
+    final flags = api.ReceiverFlags.notExported;
+    await api.ContextCompat.registerReceiver(context, receiver, filter, flags);
   }
 
-  void _onCancelStateChagned() {
-    jni.context.unregisterReceiver(_receiver);
-  }
-
-  @override
-  List<ScanResult> get scanResults =>
-      _jwm.getScanResults().map((jsr) => ScanResultImpl.jni(jsr)).toList();
-
-  @override
-  bool checkPermissions() {
-    return _jps.every((permission) =>
-        jni.ContextCompat.checkSelfPermission(jni.context, permission) ==
-        jni.PackageManager.PERMISSION_GRANTED);
+  void _onCancelStateChagned() async {
+    final context = _context;
+    final receiver = _receiver;
+    await context.unregisterReceiver(receiver);
   }
 
   @override
-  Future<bool> requestPermissions() async {
-    final completer = Completer<bool>();
-    final jps = jni.JArray(jni.JString.type, _jps.length)
-      ..setRange(0, _jps.length, _jps);
-    const requestCode = 1949;
-    final listener =
-        jni.PluginRegistry_RequestPermissionsResultListener.implement(
-      jni.$PluginRegistry_RequestPermissionsResultListener(
-        onRequestPermissionsResult: (code, _, rs) {
-          if (code != requestCode) {
-            return false;
-          }
-          final isGranted = rs
-              .getRange(0, rs.length)
-              .every((r) => r == jni.PackageManager.PERMISSION_GRANTED);
-          completer.complete(isGranted);
-          return true;
-        },
-      ),
-    );
-    jni.ActivityX.INSTANCE.addRequestPermissionsResultListener(listener);
-    try {
-      jni.ActivityCompat.requestPermissions(jni.activity, jps, requestCode);
-      return await completer.future;
-    } finally {
-      jni.ActivityX.INSTANCE.removeRequestPermissionsResultListener(listener);
-    }
-  }
-
-  @override
-  int addNetwork(WiFiConfiguration config) {
-    if (config is! WiFiConfigurationImpl) {
+  Future<int> addNetwork(WifiConfiguration config) async {
+    if (config is! WifiConfigurationImpl) {
       throw TypeError();
     }
-    return _jwm.addNetwork(config._jwc);
+    final manager = await _manager;
+    return manager.addNetwork(config.args);
   }
 
   @override
-  List<WiFiConfiguration> get configuredNetworks => _jwm
-      .getConfiguredNetworks()
-      .map((jwc) => WiFiConfigurationImpl.jni(jwc))
-      .toList();
-
-  @override
-  WiFiInfo get connectionInfo {
-    final jwi = _jwm.getConnectionInfo();
-    return WiFiInfoImpl.jni(jwi);
+  Future<List<WifiConfiguration>> getConfiguredNetworks() async {
+    final manager = await _manager;
+    final value = await manager.getConfiguredNetworks();
+    return value.map((e) => e.obj).toList();
   }
 
   @override
-  DHCPInfo get dhcpInfo {
-    final jdi = _jwm.getDhcpInfo();
-    return DHCPInfo(jdi);
+  Future<WifiInfo> getConnectionInfo() async {
+    final manager = await _manager;
+    final value = await manager.getConnectionInfo();
+    return value.obj;
   }
 
   @override
-  void disableNetwork(int netId) {
-    final ok = _jwm.disableNetwork(netId);
+  Future<DhcpInfo> getDhcpInfo() async {
+    final manager = await _manager;
+    final value = await manager.getDhcpInfo();
+    return value.obj;
+  }
+
+  @override
+  Future<void> disableNetwork(int netId) async {
+    final manager = await _manager;
+    final ok = await manager.disableNetwork(netId);
     if (!ok) {
-      throw WiFiException('disableNetwork $netId failed.');
+      throw WifiException('disableNetwork $netId failed.');
     }
   }
 
   @override
-  void disconnect() {
-    final ok = _jwm.disconnect();
+  Future<void> disconnect() async {
+    final manager = await _manager;
+    final ok = await manager.disconnect();
     if (!ok) {
-      throw WiFiException('disconnect failed.');
+      throw WifiException('disconnect failed.');
     }
   }
 
   @override
-  void enableNetwork(int netId, bool attemptConnect) {
-    final ok = _jwm.enableNetwork(netId, attemptConnect);
+  Future<void> enableNetwork(int netId, bool attemptConnect) async {
+    final manager = await _manager;
+    final ok = await manager.enableNetwork(netId, attemptConnect);
     if (!ok) {
-      throw WiFiException('enableNetwork $netId, $attemptConnect failed.');
+      throw WifiException('enableNetwork $netId, $attemptConnect failed.');
     }
   }
 }
 
-final class ScanResultImpl implements ScanResult {
-  final jni.ScanResult _jsr;
+final class WifiConfigurationImpl extends WifiConfiguration {
+  final api.WifiConfiguration _configuration;
 
-  ScanResultImpl.jni(this._jsr);
+  WifiConfigurationImpl.api(this._configuration) : super.impl();
+
+  factory WifiConfigurationImpl() {
+    final configuration = api.WifiConfiguration();
+    return WifiConfigurationImpl.api(configuration);
+  }
 
   @override
-  String get bssid => _jsr.BSSID.toDartString(
-        releaseOriginal: true,
-      );
+  Future<String> getBSSID() async {
+    final value = await _configuration.getBSSID();
+    return value;
+  }
+
   @override
-  String get ssid => _jsr.SSID.toDartString(
-        releaseOriginal: true,
-      );
+  Future<String> getFQDN() async {
+    final value = await _configuration.getFQDN();
+    return value;
+  }
+
   @override
-  String get capabilities => _jsr.capabilities.toDartString(
-        releaseOriginal: true,
-      );
+  Future<String> getSSID() async {
+    final value = await _configuration.getSSID();
+    return value;
+  }
+
   @override
-  int get centerFreq0 => _jsr.centerFreq0;
+  Future<void> setSSID(String value) async {
+    await _configuration.setSSID(value);
+  }
+
   @override
-  int get centerFreq1 => _jsr.centerFreq1;
+  Future<bool> getHiddenSSID() async {
+    final value = await _configuration.getHiddenSSID();
+    return value;
+  }
+
   @override
-  int get channelWidth => _jsr.channelWidth;
+  Future<int> getNetworkId() async {
+    final value = await _configuration.getNetworkId();
+    return value;
+  }
+
   @override
-  int get frequency => _jsr.frequency;
-  @override
-  int get level => _jsr.level;
-  @override
-  String get operatorFriendlyName =>
-      _jsr.operatorFriendlyName.toString$1().toDartString(
-            releaseOriginal: true,
-          );
-  @override
-  int get timestamp => _jsr.timestamp;
-  @override
-  String get venueName => _jsr.venueName.toString$1().toDartString(
-        releaseOriginal: true,
-      );
+  Future<WifiConfigurationStatus> getStatus() async {
+    final value = await _configuration.getStatus();
+    return value;
+  }
 }
 
-final class WiFiConfigurationImpl implements WiFiConfiguration {
-  final jni.WifiConfiguration _jwc;
+final class WifiInfoImpl extends WifiInfo {
+  final api.WifiInfo _info;
 
-  WiFiConfigurationImpl() : _jwc = jni.WifiConfiguration();
-
-  WiFiConfigurationImpl.jni(this._jwc);
+  WifiInfoImpl.api(this._info) : super.impl();
 
   @override
-  String? get bssid {
-    final jbssid = _jwc.BSSID;
-    return jbssid.isNull
-        ? null
-        : jbssid.toDartString(
-            releaseOriginal: true,
-          );
+  Future<String> getBSSID() async {
+    final value = await _info.getBSSID();
+    return value;
   }
 
   @override
-  String? get fqdn {
-    final jfqdn = _jwc.FQDN;
-    return jfqdn.isNull
-        ? null
-        : jfqdn.toDartString(
-            releaseOriginal: true,
-          );
+  Future<int> getFrequency() async {
+    final value = await _info.getFrequency();
+    return value;
   }
 
   @override
-  String get ssid => _jwc.SSID.toDartString(
-        releaseOriginal: true,
-      );
-  @override
-  set ssid(String value) => _jwc.SSID = value.toJString();
-
-  @override
-  bool get hiddenSSID => _jwc.hiddenSSID;
-  @override
-  int get networkId => _jwc.networkId;
-  @override
-  String? get preSharedKey {
-    final jpsk = _jwc.preSharedKey;
-    return jpsk.isNull
-        ? null
-        : jpsk.toDartString(
-            releaseOriginal: true,
-          );
+  Future<bool> getHiddenSSID() async {
+    final value = await _info.getHiddenSSID();
+    return value;
   }
 
   @override
-  set preSharedKey(String? value) {
-    _jwc.preSharedKey = value == null
-        ? jni.JString.fromReference(jni.jNullReference)
-        : value.toJString();
+  Future<int> getIpAddress() async {
+    final value = await _info.getIpAddress();
+    return value;
   }
 
   @override
-  WiFiConfigurationStatus get status => _jwc.status.toWiFiConfigurationStatus();
-
-  @override
-  List<String?> get wepKeys {
-    final jwks = _jwc.wepKeys;
-    final wks = <String?>[];
-    for (var i = 0; i < jwks.length; i++) {
-      final jwk = jwks[i];
-      final wk = jwk.isNull
-          ? null
-          : jwk.toDartString(
-              releaseOriginal: true,
-            );
-      wks.add(wk);
-    }
-    return List.unmodifiable(wks);
+  Future<int> getLinkSpeed() async {
+    final value = await _info.getLinkSpeed();
+    return value;
   }
 
   @override
-  set wepKeys(List<String?> value) =>
-      _jwc.wepKeys = jni.JArray(jni.JString.type, value.length)
-        ..setRange(
-          0,
-          value.length,
-          value.map((wk) => wk == null
-              ? jni.JString.fromReference(jni.jNullReference)
-              : wk.toJString()),
-        );
+  Future<String> getMacAddress() async {
+    final value = await _info.getMacAddress();
+    return value;
+  }
 
   @override
-  int get wepTxKeyIndex => _jwc.wepTxKeyIndex;
+  Future<int> getNetworkId() async {
+    final value = await _info.getNetworkId();
+    return value;
+  }
+
+  @override
+  Future<int> getRssi() async {
+    final value = await _info.getRssi();
+    return value;
+  }
+
+  @override
+  Future<String> getSSID() async {
+    final value = await _info.getSSID();
+    return value;
+  }
 }
 
-final class WiFiInfoImpl implements WiFiInfo {
-  final jni.WifiInfo _jwi;
+final class DhcpInfoImpl extends DhcpInfo {
+  final api.DhcpInfo _info;
 
-  WiFiInfoImpl.jni(this._jwi);
+  DhcpInfoImpl.api(this._info) : super.impl();
 
   @override
-  String get bssid => _jwi.getBSSID().toDartString(
-        releaseOriginal: true,
-      );
+  Future<int> getDNS1() async {
+    final value = await _info.getDNS1();
+    return value;
+  }
+
   @override
-  int get frequency => _jwi.getFrequency();
+  Future<int> getDNS2() async {
+    final value = await _info.getDNS2();
+    return value;
+  }
+
   @override
-  bool get hiddenSSID => _jwi.getHiddenSSID();
+  Future<int> getGateway() async {
+    final value = await _info.getGateway();
+    return value;
+  }
+
   @override
-  int get ipAddress => _jwi.getIpAddress();
+  Future<int> getIpAddress() async {
+    final value = await _info.getIpAddress();
+    return value;
+  }
+
   @override
-  int get linkSpeed => _jwi.getLinkSpeed();
+  Future<int> getLeaseDuration() async {
+    final value = await _info.getLeaseDuration();
+    return value;
+  }
+
   @override
-  String get macAddress => _jwi.getMacAddress().toDartString(
-        releaseOriginal: true,
-      );
+  Future<int> getNetmask() async {
+    final value = await _info.getNetmask();
+    return value;
+  }
+
   @override
-  int get networkId => _jwi.getNetworkId();
-  @override
-  int get rssi => _jwi.getRssi();
-  @override
-  String get ssid => _jwi.getSSID().toDartString(
-        releaseOriginal: true,
-      );
+  Future<int> getServerAddress() async {
+    final value = await _info.getServerAddress();
+    return value;
+  }
 }
 
-extension on int {
-  WiFiState toWiFiState() {
-    switch (this) {
-      case jni.WifiManager.WIFI_STATE_UNKNOWN:
-        return WiFiState.unknown;
-      case jni.WifiManager.WIFI_STATE_DISABLED:
-        return WiFiState.disabled;
-      case jni.WifiManager.WIFI_STATE_ENABLING:
-        return WiFiState.enabling;
-      case jni.WifiManager.WIFI_STATE_ENABLED:
-        return WiFiState.enabled;
-      case jni.WifiManager.WIFI_STATE_DISABLING:
-        return WiFiState.disabling;
-      default:
-        throw ArgumentError.value(this);
-    }
-  }
+extension on WifiConfigurationImpl {
+  api.WifiConfiguration get args => _configuration;
+}
 
-  WiFiConfigurationStatus toWiFiConfigurationStatus() {
-    switch (this) {
-      case jni.WifiConfiguration_Status.CURRENT:
-        return WiFiConfigurationStatus.current;
-      case jni.WifiConfiguration_Status.DISABLED:
-        return WiFiConfigurationStatus.disabled;
-      case jni.WifiConfiguration_Status.ENABLED:
-        return WiFiConfigurationStatus.enabled;
-      default:
-        throw ArgumentError.value(this);
-    }
-  }
+extension on api.WifiConfiguration {
+  WifiConfigurationImpl get obj => WifiConfigurationImpl.api(this);
+}
+
+extension on api.WifiInfo {
+  WifiInfoImpl get obj => WifiInfoImpl.api(this);
+}
+
+extension on api.DhcpInfo {
+  DhcpInfoImpl get obj => DhcpInfoImpl.api(this);
 }

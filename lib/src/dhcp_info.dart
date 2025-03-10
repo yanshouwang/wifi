@@ -1,15 +1,15 @@
-import 'jni.dart' as jni;
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-final class DHCPInfo {
-  final jni.DhcpInfo _jdi;
+abstract base class DhcpInfo extends PlatformInterface {
+  static final _token = Object();
 
-  DHCPInfo(this._jdi);
+  DhcpInfo.impl() : super(token: _token);
 
-  int get dns1 => _jdi.dns1;
-  int get dns2 => _jdi.dns2;
-  int get gateway => _jdi.gateway;
-  int get ipAddress => _jdi.ipAddress;
-  int get leaseDuration => _jdi.leaseDuration;
-  int get netmask => _jdi.netmask;
-  int get serverAddress => _jdi.serverAddress;
+  Future<int> getDNS1();
+  Future<int> getDNS2();
+  Future<int> getGateway();
+  Future<int> getIpAddress();
+  Future<int> getLeaseDuration();
+  Future<int> getNetmask();
+  Future<int> getServerAddress();
 }

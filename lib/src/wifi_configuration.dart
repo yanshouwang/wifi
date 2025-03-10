@@ -1,28 +1,22 @@
-import 'impl.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
 import 'wifi_configuration_status.dart';
+import 'wifi_plugin.dart';
 
-abstract interface class WiFiConfiguration {
-  factory WiFiConfiguration() => WiFiConfigurationImpl();
+abstract base class WifiConfiguration extends PlatformInterface {
+  static final _token = Object();
 
-  String? get bssid;
-  String? get fqdn;
-  String get ssid;
-  set ssid(String value);
+  WifiConfiguration.impl() : super(token: _token);
 
-  // BitSet get allowedAuthAlgorithms;
-  // BitSet get allowedGroupCiphers;
-  // BitSet get allowedKeyManagement;
-  // BitSet get allowedPairwiseCiphers;
-  // BitSet get allowedProtocols;
-  // WiFiEnterpriseConfig get enterpriseConfig;
-  bool get hiddenSSID;
-  int get networkId;
-  String? get preSharedKey;
-  set preSharedKey(String? value);
+  factory WifiConfiguration() => WifiPlugin.instance.newWifiConfiguration();
 
-  WiFiConfigurationStatus get status;
-  List<String?> get wepKeys;
-  set wepKeys(List<String?> value);
+  Future<String> getBSSID();
+  Future<String> getFQDN();
+  Future<String> getSSID();
+  Future<void> setSSID(String value);
 
-  int get wepTxKeyIndex;
+  Future<bool> getHiddenSSID();
+  Future<int> getNetworkId();
+
+  Future<WifiConfigurationStatus> getStatus();
 }

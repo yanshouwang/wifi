@@ -1,11 +1,17 @@
-abstract interface class WiFiInfo {
-  String get bssid;
-  int get frequency;
-  bool get hiddenSSID;
-  int get ipAddress;
-  int get linkSpeed;
-  String get macAddress;
-  int get networkId;
-  int get rssi;
-  String get ssid;
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+abstract base class WifiInfo extends PlatformInterface {
+  static final _token = Object();
+
+  WifiInfo.impl() : super(token: _token);
+
+  Future<String> getBSSID();
+  Future<int> getFrequency();
+  Future<bool> getHiddenSSID();
+  Future<int> getIpAddress();
+  Future<int> getLinkSpeed();
+  Future<String> getMacAddress();
+  Future<int> getNetworkId();
+  Future<int> getRssi();
+  Future<String> getSSID();
 }
